@@ -1,105 +1,176 @@
+from itertools import cycle
 import taichi as ti
 import taichi.math as tm
 import numpy as np
+from dataclasses import dataclass, astuple
+from typing import Optional
 
 ti.init(arch=ti.gpu)
 
-# resolution of the problem
-W, H = 256, 256
-# for initialization purposes
-np_grid = np.zeros((W, H, 2), dtype=np.float32)
-np_grid[:, :, 0] = 1.0  # Reactant H = 1.0 in all domain initially.
-# square with reactant V = 1.0 in the middle of the domain
-np_grid[(W // 2 - 10) : (W // 2 + 10), (H // 2 - 10) : (H // 2 + 10), 1] = 1.0
+VIDEO_OUT = False
 
-domain = ti.Vector.field(n=2, dtype=ti.f32, shape=(W, H))
 
-# auxiliary field for PDE solving
-future = ti.Vector.field(n=2, dtype=ti.f32, shape=(W, H))
+@dataclass
+class DomainShape:
+    width: int
+    height: int
 
-# used for rendering
-pixels = ti.field(dtype=ti.f32, shape=(W, H))
 
-# Define constants
-r_u: float = 0.250
-r_v: float = r_u / 2  # 0.080
-feed: float = 0.040
-kill: float = 0.062
+@dataclass
+class DiffusionCoefficients:
+    """Diffusion coefficients.
 
-@ti.func
-def laplacian(i: int, j: int):
-    """Compute the laplacian of a point identified by i and j.
+    Ideally it should be a vector."""
 
-    This Taichi function simply computes the discrete laplacian over a regular grid by
-    using finite differences.
+    u: float
+    v: float
 
-    Parameters
-    ----------
-    i : int
-        reference to the first index of the point in the grid.
-    j : int
-        reference to the second intex of the point in the grid
+
+@dataclass
+class ReactionCoefficients:
+    """Reaction coefficients."""
+
+    feed: float
+    kill: float
+
+
+@ti.data_oriented
+class GrayScottProblem:
+    """Class representing the G-S problem to be solved.
+
+    For now it's not generic at all. Should be in its own file tbh.
     """
-    return (
-        domain[i + 1, j]
-        + domain[i, j + 1]
-        + domain[i - 1, j]
-        + domain[i, j - 1]
-        - domain[i, j] * 4.0
-    )
 
-@ti.kernel
-def render():
-    """Differently to a scalar field, vector fields need to be processed a bit for them
-    to be paintable."""
-    for i, j in domain:
-        # paint just the V concentration.
-        pixels[i, j] = domain[i, j][1]
+    def __init__(
+        self,
+        domain_shape: DomainShape,
+        diffusion_coefs: DiffusionCoefficients,
+        reaction_coefs: ReactionCoefficients,
+        f_arr: Optional[np.array] = None,
+        k_arr: Optional[np.array] = None,
+    ):
+        """Initialize parameters."""
+        self.D = diffusion_coefs
+        self.R = reaction_coefs
+        self.domain_shape = domain_shape
+        # these arrays will allow for space-varying coefficients.
+        self.f_arr = f_arr if f_arr is not None else np.ones(astuple(domain_shape))
+        self.k_arr = k_arr if k_arr is not None else np.ones(astuple(domain_shape))
+        self.allocate_domain()
 
-@ti.kernel
-def evolve():
-    """Integrate one timestep of the discretized Gray-Scott equation.
+    def allocate_domain(self):
+        W, H = astuple(self.domain_shape)
+        np_grid = np.zeros((2, W, H, 2), dtype=np.float32)
+        np_grid[0, :, :, 0] = 1.0  # Reactant H = 1.0 in all domain initially.
+        # square with reactant V = 1.0 in the middle of the domain
+        np_grid[
+            0, (W // 2 - 10) : (W // 2 + 10), (H // 2 - 10) : (H // 2 + 10), 1
+        ] = 1.0
 
-    Define a Taichi kernel to compute the next state of the system. Uses Explicit Euler
-    to integrate.
-    """
-    for i, j in domain:
-        uv = domain[i, j]
-        reaction = uv[0] * uv[1] * uv[1]
-        Δ = laplacian(i, j)
-        du = r_u * Δ[0] - reaction + feed * (1 - uv[0])
-        dv = r_v * Δ[1] + reaction - (feed + kill) * uv[1]
-        # instead of returning, update in place (returning would get us outside
-        # of the GPU)
-        uv_1 = uv + 0.5 * tm.vec2(du, dv)
-        future[i, j] = uv_1
+        self.domain = ti.Vector.field(n=2, dtype=ti.f32, shape=(2, W, H))
+        self.domain.from_numpy(np_grid)
 
-    for I in ti.grouped(domain):
-        domain[I] = future[I]
+    @ti.kernel
+    def evolve(self, t: int):
+        """Integrate one timestep of the discretized Gray-Scott equation.
+
+        Define a Taichi kernel to compute the next state of the system. Uses Explicit Euler
+        to integrate.
+        """
+        for i, j in ti.ndrange(*astuple(self.domain_shape)):
+            uv = self.domain[t, i, j]
+            reaction = uv[0] * uv[1] * uv[1]
+            Δ = self.laplacian(t, i, j)
+            du = self.D.u * Δ[0] - reaction + self.R.feed * (1 - uv[0])
+            dv = self.D.v * Δ[1] + reaction - (self.R.feed + self.R.kill) * uv[1]
+            uv_1 = uv + 0.5 * tm.vec2(du, dv)  # is h=0.5 for some reason?
+            self.domain[1 - t, i, j] = uv_1
+
+    @ti.func
+    def laplacian(self, t: int, i: int, j: int):
+        """Compute the laplacian of a point identified by i and j.
+
+        This Taichi function simply computes the discrete laplacian over a regular grid by
+        using finite differences.
+
+        Parameters
+        ----------
+        t : int
+            reference to alternating buffer.
+        i : int
+            reference to the first index of the point in the grid.
+        j : int
+            reference to the second intex of the point in the grid
+        """
+        return (
+            self.domain[t, i + 1, j]
+            + self.domain[t, i, j + 1]
+            + self.domain[t, i - 1, j]
+            + self.domain[t, i, j - 1]
+            - self.domain[t, i, j] * 4.0
+        )
+
+
+@ti.data_oriented
+class ColorRenderer:
+    def __init__(self, domain_shape: DomainShape):
+        self.pixels = ti.Vector.field(
+            3, ti.f32, shape=(domain_shape.width, domain_shape.height)
+        )
+        self.palette = ti.Vector.field(4, ti.f32, shape=(5,))
+        self.palette[0] = [0.0, 0.0, 0.0, 0.3137]
+        self.palette[1] = [1.0, 0.1843, 0.53333, 0.37647]
+        self.palette[2] = [0.8549, 1.0, 0.53333, 0.388]
+        self.palette[3] = [0.376, 1.0, 0.478, 0.392]
+        self.palette[4] = [1.0, 1.0, 1.0, 1]
+
+    @ti.kernel
+    def render(self, domain: ti.template()):
+        for i, j in self.pixels:
+            value = domain[0, i, j].y
+            c = tm.vec3(value)
+            # clamp value
+            if value <= self.palette[0].w:
+                c = self.palette[0].xyz
+
+            for k in range(4):
+                c0 = self.palette[k]
+                c1 = self.palette[k + 1]
+                if c0.w < value < c1.w:
+                    a = (value - c0.w) / (c1.w - c0.w)
+                    c = tm.mix(c0.xyz, c1.xyz, a)
+
+            self.pixels[i, j] = c
+
 
 def main():
-    gui = ti.GUI("Gray Scott", res=(W, H))
-    substeps: int = 60  # 1
-    domain.from_numpy(np_grid)
-    result_dir = "./results"
-    # VideoManager let's me create gifs easily.
-    video_manager = ti.tools.VideoManager(output_dir=result_dir, framerate=24, automatic_build=False)
-    while not gui.get_event(ti.GUI.ESCAPE, ti.GUI.EXIT):
-        # If we compute each time we render, the system evolves very slowly.
-        # By evolving the equation 60 times before rendering, we accelerate the real
-        # time evolution.
-        for _ in range(substeps):
-            evolve()
-        # # canvas.set_image(domain)
-        render()
-        gui.set_image(pixels)
+    domain_shape = DomainShape(600, 400)
+    d = DiffusionCoefficients(u=0.250, v=0.125)
+    r = ReactionCoefficients(feed=0.052, kill=0.062)
+    problem = GrayScottProblem(domain_shape, d, r)
+    renderer = ColorRenderer(domain_shape)
+    # Use Window instead of GUI
+    gui = ti.ui.Window("Gray Scott", res=astuple(domain_shape))
+    # get a canvas to paint on
+    canvas = gui.get_canvas()
+    substeps: int = 30  # 1
+    result_dir = "../results"
+    # VideoManager lets me create gifs easily.
+    if VIDEO_OUT:
+        video_manager = ti.tools.VideoManager(
+            output_dir=result_dir, framerate=24, automatic_build=False
+        )
+    while gui.running:
+        for _, t in zip(range(2 * substeps), cycle([0, 1])):
+            problem.evolve(t)
+        renderer.render(problem.domain)
+        canvas.set_image(renderer.pixels)
         gui.show()
-        video_manager.write_frame(pixels.to_numpy())
+        if VIDEO_OUT:
+            video_manager.write_frame(renderer.pixels.to_numpy())
 
-    video_manager.make_video(gif=False)  # output as mp4 that will be converted to gif later
+    if VIDEO_OUT:
+        video_manager.make_video(gif=False)
 
 
-# wrapping thing into `if __name__=="__main__"` prevents the function from being
-# executed if we call `ti run` (my preferred method to run taichi code) in the command
-# line, because that way this file is no longer "__main__".
 main()
