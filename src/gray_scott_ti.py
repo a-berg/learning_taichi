@@ -154,7 +154,7 @@ def main():
     # get a canvas to paint on
     canvas = gui.get_canvas()
     substeps: int = 30  # 1
-    result_dir = "../results"
+    result_dir = "./results/reaction_diffusion/"
     # VideoManager lets me create gifs easily.
     if VIDEO_OUT:
         video_manager = ti.tools.VideoManager(
@@ -170,7 +170,7 @@ def main():
             video_manager.write_frame(renderer.pixels.to_numpy())
 
     if VIDEO_OUT:
-        video_manager.make_video(gif=False)
+        video_manager.make_video(gif=True)
 
 
 main()

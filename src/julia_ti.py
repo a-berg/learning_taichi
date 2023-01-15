@@ -16,7 +16,7 @@ def complex_square(z):  # complex square of a 2D vector
 def paint(t: float):
     for i, j in pixels:  # Parallelized over all pixels
         c = tm.vec2(0.7885 * tm.cos(t), 0.7885 * tm.sin(t))
-        z = tm.vec2(i / n - 1, j / n - 0.5) * 2
+        z = tm.vec2(i / n - 1, j / n - 0.5) * 3
         iterations = 0
         while z.norm() < 20 and iterations < 50:
             z = complex_square(z) + c
