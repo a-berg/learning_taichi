@@ -23,7 +23,7 @@ The main change Taichi will make in your code is: you get `for` loops back!
 
 ### Aside: why not Numba?
 
-Numba is very similar in purpose and implementation to Taichi. Both are "extension
+Numba is very similar in purpose and interface to Taichi. Both are "extension
 languages" to base Python using decorators to allow for easy parallelization, and both
 target GPU and CPU parallelization.
 
