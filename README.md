@@ -1,8 +1,9 @@
 # Taichi explorations
 
 In this repo you can find a couple examples in [Taichi](https://www.taichi-lang.org/)
-regarding the computation of [Julia sets](Julia sets) and solving the [Gray-Scott
-equations](Gray-Scott equations) in 2d.
+regarding the computation of [Julia sets](https://docs.taichi-lang.org/docs/hello_world)
+and solving the [Gray-Scott
+equations](https://en.wikipedia.org/wiki/Reaction%E2%80%93diffusion_system) in 2d.
 
 <!-- You can find a blog post here: post. -->
 
@@ -41,12 +42,14 @@ I was interested in Taichi because I do ML, and it offered potential for integra
 with Pytorch, with interesting use cases for computer vision, LiDAR and hybridizing
 mathematical optimization with DL.
 
-As a first contact with the language, I decided to follow the ["hello world"][1] example
-to compute Julia sets and then attempt to (by myself) code a simple solver for the Gray
-Scott system of equations, adapting the code from a previous numpy code I had.
+As a first contact with the language, I decided to follow the ["hello
+world"](https://docs.taichi-lang.org/docs/hello_world) example to compute Julia sets and
+then attempt to (by myself) code a simple solver for the Gray Scott system of equations,
+adapting the code from a previous numpy code I had.
 
-> disclaimer: you can find another G-S implementation in the [Taichi blog][2], which I
-> didn't know of at the time of writing my first Taichi implementation. After
+> disclaimer: you can find another G-S implementation in the [Taichi
+> blog](https://docs.taichi-lang.org/blog/accelerate-python-code-100x#reaction-diffusion-equations),
+> which I didn't know of at the time of writing my first Taichi implementation. After
 > discovering it, I used it to do the color-rendering part and debugging a performance
 > issue.
 
@@ -86,6 +89,3 @@ This is merely a simple initial contact with Taichi. I have liked the library a 
 would like to use it more, so I probably will.
 
 If you have any comment, open a discussion in the repository!
-
-1: <https://docs.taichi-lang.org/docs/hello_world>
-2: <https://docs.taichi-lang.org/blog/accelerate-python-code-100x#reaction-diffusion-equations>
