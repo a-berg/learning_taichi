@@ -49,9 +49,8 @@ adapting the code from a previous numpy code I had.
 
 > disclaimer: you can find another G-S implementation in the [Taichi
 > blog](https://docs.taichi-lang.org/blog/accelerate-python-code-100x#reaction-diffusion-equations),
-> which I didn't know of at the time of writing my first Taichi implementation. After
-> discovering it, I used it to do the color-rendering part and debugging a performance
-> issue.
+> which I didn't know of at the time of writing my first Taichi implementation. Upon discovering it,
+> it influenced my code.
 
 ### Julia sets computation
 
