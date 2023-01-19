@@ -50,7 +50,7 @@ adapting the code from a previous numpy code I had.
 > disclaimer: you can find another G-S implementation in the [Taichi
 > blog](https://docs.taichi-lang.org/blog/accelerate-python-code-100x#reaction-diffusion-equations),
 > which I didn't know of at the time of writing my first Taichi implementation. Upon discovering it,
-> it influenced my code.
+> it influenced my code somewhat.
 
 ### Julia sets computation
 
