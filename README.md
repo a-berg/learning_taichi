@@ -5,6 +5,8 @@ regarding the computation of [Julia sets](https://docs.taichi-lang.org/docs/hell
 and solving the [Gray-Scott
 equations](https://en.wikipedia.org/wiki/Reaction%E2%80%93diffusion_system) in 2d.
 
+> Find out more! Here's a link to [a blog post](https://a-berg.github.io/philambdapi) going more in detail.
+
 <!-- You can find a blog post here: post. -->
 
 ## What is Taichi?
