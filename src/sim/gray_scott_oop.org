@@ -1,0 +1,131 @@
+#+title: Object-Oriented Taichi
+#+author: Adrian
+#+date: 2022-12-10
+#+description: I use object-oriented capabilities to refactor the code for Gray Scott equations.
+#+PROPERTY: header-args:python :tangle ./gray_scott.py :mkdirp yes
+
+Let's start with the imports.
+
+#+begin_src python
+  from itertools import cycle
+  import taichi as ti
+  import taichi.math as tm
+  import numpy as np
+
+  ti.init(arch=ti.gpu)
+#+end_src
+
+* TODO Problem object
+
+There are various parts:
+
++ Domain
++ Laplacian term
++ Reaction term
++ Integrator (euler vs others)
+
+For a first approach, it makes sense to just encapsulate the problem into a "/demigod class/"
+with some improvements then keep generalising over that.
+
+I'd do well in defining some /common verbs/ that such a class should have and their
+responsibilities. Or not lmao.
+
+----------
+
+Let's define the euler integrator function:
+
+#+begin_src python
+  @ti.function
+  def forward_euler(u, du):
+      return u + 0.5 * du
+#+end_src
+
+and the reaction term function (?):
+
+#+begin_src python
+  @ti.function
+  def reaction_term(uv, feed, kill):
+      """This cannot be a function because it needs parameters."""
+      reaction = uv[0] * uv[1] * uv[1]
+      return tm.vec2(-reaction + feed * (1 - uv[0]), reaction - (feed + kill) * uv[1])
+#+end_src
+
+Then, the evolve kernel is as:
+
+#+begin_src python
+  @ti.kernel
+  def evolve(t: int):
+      """Integrate one timestep of the discretized Gray-Scott equation.
+
+      Define a Taichi kernel to compute the next state of the system. Uses Explicit Euler
+      to integrate.
+      """
+      for i, j in ti.ndrange(W, H):
+          uv = domain[t, i, j]
+          reaction = reaction_term(uv, feed, kill)
+          Δ = laplacian(t, i, j)
+          du = r_u * Δ[0] + reaction
+          dv = r_v * Δ[1] + reaction
+          domain[1 - t, i, j] = forward_euler(uv, tm.vec2(du, dv))
+#+end_src
+
+In a general sense, a need for an operator that multiplies matrices over certain axes
+arises. I'm referring to tue product $D_i \cdot \Delta_i$, with $i$ indicating the
+reactant; that is, given a vector (a diagonal) of diffusion coefficients and a laplacian
+of each reactant, compute the product.
+
+First problem: computing the laplacian requires information about surrounding area.
+
+** Laplacian
+
+Given a domain of H×W×N, computes a laplacian in the 2 first dimensions.
+
+** Reaction
+
+Given a domain of H×W×N, computes the reaction locally. This has to be user-implemented.
+
+* TODO Parameters
+
+** The equation's parameters.
+
+One of the things that could be improved are parameter definition. For one, it doesn't
+seem like a good thing to just leave them freely in the script. A data class could be used
+to define these parameters, then a library like =OmegaConf= (or =hydra=) could be used to
+externalize the configuration to a YAML file.
+
+#+BEGIN_SRC python :tangle no
+  class Parameters:
+      """Simple parameters class. Not tangled."""
+      D_u: float
+      D_v: float
+      feed: float
+      kill: float
+#+END_SRC
+
+There's also the distinction between difussion parameters ($D_i$) and the reaction parameters.
+In a general case, too, one would consider the possibility of having multiple reactants.
+
+Moreover, in the general case, any of these parameters could vary in the spatial domain
+-- even more generally, they could vary in time too, or even be part of the differential
+equation itself. I won't go that far.
+
+Finally, there's the question on how to (optimize them through GD?) (represent these as
+structs?) (do initial conditions?) (I can't remember what I wanted to say!!!)
+
+** The grid parameters
+
+This one is simpler as we typically want just 2.
+
+#+begin_src python
+  class GridParameters:
+    width: int
+    height: int
+#+end_src
+
+But, should we create a class where the domain is also initialized? I see here a conflict between
+the painting grid so to speak, and the computing grid.
+
+* TODO Colors and colormaps
+
+There's also the issue of color painting. Black and white is a bit dull, so one would
+ideally want to select a color map and make color rendering a separate issue.
