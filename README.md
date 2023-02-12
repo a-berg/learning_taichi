@@ -63,7 +63,7 @@ It's basically a 1:1 writing of the mentioned "hello world" example. A result ca
 To run the code, use:
 
 ```
-ti run src/julia_ti.py
+ti run src/fractals/julia_ti.py
 ```
 
 ### Solving Gray-Scott model for reaction-diffusion systems
@@ -79,7 +79,7 @@ You can see the results here:
 and run the code using:
 
 ```
-ti run src/gray_scott_ti.py
+ti run src/sim/gray_scott_ti.py
 ```
 
 The original numpy code can be inspected, too: [original](./src/gray_scott.py).
