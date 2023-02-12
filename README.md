@@ -5,6 +5,8 @@ regarding the computation of [Julia sets](https://docs.taichi-lang.org/docs/hell
 and solving the [Gray-Scott
 equations](https://en.wikipedia.org/wiki/Reaction%E2%80%93diffusion_system) in 2d.
 
+> Find out more! Here's a link to [a blog post](https://a-berg.github.io/philambdapi/posts/2023-01-20-taichi.html) going more in detail.
+
 <!-- You can find a blog post here: post. -->
 
 ## What is Taichi?
@@ -23,7 +25,7 @@ The main change Taichi will make in your code is: you get `for` loops back!
 
 ### Aside: why not Numba?
 
-Numba is very similar in purpose and implementation to Taichi. Both are "extension
+Numba is very similar in purpose and interface to Taichi. Both are "extension
 languages" to base Python using decorators to allow for easy parallelization, and both
 target GPU and CPU parallelization.
 
@@ -49,9 +51,8 @@ adapting the code from a previous numpy code I had.
 
 > disclaimer: you can find another G-S implementation in the [Taichi
 > blog](https://docs.taichi-lang.org/blog/accelerate-python-code-100x#reaction-diffusion-equations),
-> which I didn't know of at the time of writing my first Taichi implementation. After
-> discovering it, I used it to do the color-rendering part and debugging a performance
-> issue.
+> which I didn't know of at the time of writing my first Taichi implementation. Upon discovering it,
+> it influenced my code somewhat.
 
 ### Julia sets computation
 
